@@ -22,7 +22,7 @@ namespace Viora.Services
 
 
 
-        public async Task<int> SaveUserMessage(string message ,int userId ,int? chatId) {
+        public async Task<int> SaveMessage(string message ,int userId ,int? chatId,string senderType) {
 
             if (! chatId.HasValue || chatId==0)
             {
@@ -35,7 +35,7 @@ namespace Viora.Services
             {
                 ChatId = chatId.Value ,
                 Content = message,
-                SenderType = "User",
+                SenderType = senderType,
                 UserId = userId
 
             };

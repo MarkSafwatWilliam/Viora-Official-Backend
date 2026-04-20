@@ -32,6 +32,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddHttpClient();
 
+builder.Services.AddMemoryCache();
+
 //Database Configuration
 builder.Services.AddDbContext<VioraDBContext>(
     options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -91,7 +93,8 @@ builder.Services.AddAuthentication(options =>
 // Dependecy Injection for Repositories and Services
 builder.Services.AddScoped(typeof(GenericRepository<>));
 
-builder.Services.AddScoped<ChatRepository>(); 
+builder.Services.AddScoped<ChatRepository>();
+builder.Services.AddScoped<UserFileRepository>();
 
 builder.Services.AddScoped<JwtAuthenticationService>();
 builder.Services.AddScoped<SpeechToTextService>();
@@ -99,6 +102,9 @@ builder.Services.AddScoped<IntentClassificationService>();
 builder.Services.AddScoped<ChatHandlingService>();
 builder.Services.AddScoped<MessageHandlingService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<TextToSpeechService>();
+builder.Services.AddScoped<DocumentHandlingService>();
+
 
 
 

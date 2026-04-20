@@ -32,7 +32,7 @@ namespace Viora.Controllers
         [HttpPost("register")]
         [SwaggerResponse(200, "SignUp Successfully")]
         [SwaggerResponse(400, "Failed to SignUp")]
-        public async Task<IActionResult> Register(CreateUserDTO dto)
+        public async Task<IActionResult> Register([FromBody]CreateUserDTO dto)
         {
             if (dto == null || !ModelState.IsValid)
                 return BadRequest("Invalid user data.");
@@ -80,7 +80,7 @@ namespace Viora.Controllers
         [SwaggerResponse(401, "Unauthorized")]
         [HttpPost("login")]
 
-        public async Task<IActionResult> Login(LoginDTO dto)
+        public async Task<IActionResult> Login([FromBody] LoginDTO dto)
         {
             if (dto == null || !ModelState.IsValid)
                 return BadRequest("Invalid login data.");
@@ -116,7 +116,7 @@ namespace Viora.Controllers
         [SwaggerResponse(401, "Invalid or expired refresh token")]
         [SwaggerResponse(404, "User not found")]
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken(RefreshTokenDTO dto)
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDTO dto)
         {
             var oldToken = await _refreshTokenRepo.FindAsync(rt => rt.Token == dto.RefreshToken);
             if (oldToken == null || oldToken.ExpiredAt < DateTime.UtcNow || oldToken.IsRevoked)
@@ -151,7 +151,7 @@ namespace Viora.Controllers
         [SwaggerResponse(401, "Unauthorized")]
         [HttpPost("logout")]
 
-        public async Task<IActionResult> Logout(RefreshTokenDTO dto)
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenDTO dto)
         {
             if (string.IsNullOrEmpty(dto.RefreshToken))
                 return BadRequest("Refresh token is required.");

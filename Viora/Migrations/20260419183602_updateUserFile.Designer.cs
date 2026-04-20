@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Viora.Data;
 
@@ -11,9 +12,11 @@ using Viora.Data;
 namespace Viora.Migrations
 {
     [DbContext(typeof(VioraDBContext))]
-    partial class VioraDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260419183602_updateUserFile")]
+    partial class updateUserFile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -467,18 +470,21 @@ namespace Viora.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("FileName")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Path")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<long?>("Size")
+                    b.Property<long>("Size")
                         .HasColumnType("bigint");
 
                     b.Property<int?>("TextLength")
                         .HasColumnType("int");
 
                     b.Property<string>("Type")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UserOwnerId")
