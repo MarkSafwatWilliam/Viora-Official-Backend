@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Azure;
+using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Storage.Json;
@@ -40,6 +42,40 @@ namespace Viora.Controllers
             _documentHandlingService = documentHandlingService;
         }
 
+
+        [HttpPost("stt")]
+        public async Task<IActionResult> SpeechToText([FromForm] TranscribeRequestDTO request)
+        {
+
+            if (request.AudioFile == null || request.AudioFile.Length == 0)
+                return BadRequest(new { error = "No audio file provided" });
+
+            try
+            {
+                var result = await _speechToTextService.ConvertSpeechToTextAsync(request.AudioFile.OpenReadStream(), request.AudioFile.FileName);
+                if (result?.RecognitionStatus != "Success")
+                    return StatusCode(500, new { error = "Transcription unsuccessful", details = result?.RecognitionStatus });
+
+                string text = result.DisplayText;
+
+                var chatID = await _messageHandlingService.SaveMessage(text, CurrentUserId, request.ChatId, "User");
+
+
+                return Ok(new { text = text, chatId = chatID });
+
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(502, new { error = "External service error", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            }
+        }
+
+
+
         [HttpPost("transcribe")]
         public async Task<IActionResult> Transcribe([FromForm] TranscribeRequestDTO request) {
 
@@ -49,8 +85,7 @@ namespace Viora.Controllers
             }
             try {
 
-                var resultJsonString = await _speechToTextService.ConvertSpeechToTextAsync(request.AudioFile.OpenReadStream(),request.AudioFile.FileName);
-                var result = JsonConvert.DeserializeObject<WhisperSpeechResult>(resultJsonString);
+                var result = await _speechToTextService.ConvertSpeechToTextAsync(request.AudioFile.OpenReadStream(),request.AudioFile.FileName);
 
                 if (result?.RecognitionStatus != "Success")
                     return StatusCode(500, new { error = "Transcription unsuccessful", details = result?.RecognitionStatus });
@@ -69,6 +104,8 @@ namespace Viora.Controllers
                 {
                     "open_document" => await HandleOpenDocument(text, intentResult.Nlu.Entities , chatID),
                     "summarize_content"=> await HandleContentSummarization(request.ChatId,request.DocumentId),
+                    "document_qa"=> await HandleQuestionsAndAnswers(request.ChatId,request.DocumentId,intentResult.Nlu.Entities.Question ),
+                    "generate_study_aid"=> await HandleMaterialGeneration(request.ChatId,request.DocumentId),
                     _ => BadRequest(new { error = "Unhandled intent", intent = intentResult.Nlu.Intent ,chatID })
 
 
@@ -99,8 +136,7 @@ namespace Viora.Controllers
 
 
 
-        [HttpPost("summarize")]
-        public async Task<IActionResult> HandleContentSummarization(int? chatId, int? documentId)
+        private async Task<IActionResult> HandleContentSummarization(int? chatId, int? documentId)
         {
             if (!documentId.HasValue)
                 return BadRequest();
@@ -114,8 +150,30 @@ namespace Viora.Controllers
 
 
 
+        private async Task<IActionResult> HandleQuestionsAndAnswers(int? chatId, int? documentId,string question) {
+
+            if (!documentId.HasValue || String.IsNullOrEmpty(question))
+                return BadRequest();
+
+            var response = await _documentHandlingService.QuestionsAnswers(documentId, CurrentUserId,question);
+
+            await _messageHandlingService.SaveMessage(response, CurrentUserId, chatId, "AI");
+
+            return Ok(new { response });
+
+        }
 
 
+        private async Task<IActionResult> HandleMaterialGeneration(int? chatId , int? documentId)
+        {
+            var quiz= await _documentHandlingService.GeneratingStudyMaterials(documentId, CurrentUserId);
+            if (!documentId.HasValue || String.IsNullOrEmpty(quiz))
+                return BadRequest();
+
+            await _messageHandlingService.SaveMessage(quiz, CurrentUserId, chatId, "AI");
+
+            return Ok(new { quiz });
+        }
 
 
         [HttpPost("tts")]

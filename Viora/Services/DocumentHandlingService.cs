@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
@@ -12,6 +13,10 @@ namespace Viora.Services
     {
         private readonly string _uploadDocumentEndPoint;
         private readonly string _summarizationEndPoint;
+        private readonly string _questAndAnswerEndPoint;
+        private readonly string _GenerateMaterialsEndPoint;
+
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
         private readonly UserFileRepository _repo;
@@ -22,6 +27,8 @@ namespace Viora.Services
 
             _uploadDocumentEndPoint = configuration["ApiSettings:UploadDocumentEndPoint"];
             _summarizationEndPoint = configuration["ApiSettings:SummarizationEndPoint"];
+            _questAndAnswerEndPoint = configuration["ApiSettings:Q&AEndPoint"];
+            _GenerateMaterialsEndPoint = configuration["ApiSettings:GenenrateMaterialsEndPoint"];
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _repo = repo;
@@ -130,6 +137,56 @@ namespace Viora.Services
                 throw new HttpRequestException("Summarization failed");
 
             return summaryResult.Summary;
+        }
+
+
+
+
+
+        public async Task<string> QuestionsAnswers(int? documentId,int userId,string question)
+        {
+            var pdfContent = await GetPdfContentAsync(documentId, userId);
+
+            var client= _httpClientFactory.CreateClient();
+
+            var response = await client.PostAsJsonAsync(_questAndAnswerEndPoint, new { message = question, context = pdfContent });
+
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"AI Service returned {response.StatusCode}");
+
+            var stringJson = await response.Content.ReadAsStringAsync();
+
+            var result = JsonConvert.DeserializeObject<QuestionsAnswersResult>(stringJson);
+
+            if(result?.Status != "success")
+                throw new HttpRequestException($"Failed to answer your question");
+
+
+            return result.Response;
+
+        }
+
+
+
+        public async Task<string> GeneratingStudyMaterials(int? documentId, int userId)
+        {
+            var content = await GetPdfContentAsync(documentId,userId);
+            var client= _httpClientFactory.CreateClient();
+
+            var response = await client.PostAsJsonAsync(_GenerateMaterialsEndPoint, new {content=content , mode = "quiz" });
+            if(! response.IsSuccessStatusCode)
+                throw new HttpRequestException($"AI Service returned {response.StatusCode}");
+
+
+            var stringJson = await response.Content.ReadAsStringAsync();
+
+            var quiz = JsonConvert.DeserializeObject<MaterialGenerationResult>(stringJson);
+
+            if (quiz?.Status != "success")
+                throw new HttpRequestException($"Failed to Generate a Quiz");
+
+
+            return quiz.Result;
         }
 
     }

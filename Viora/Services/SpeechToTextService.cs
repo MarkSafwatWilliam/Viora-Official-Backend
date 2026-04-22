@@ -1,4 +1,6 @@
-﻿using System.Net.Http.Headers;
+﻿using Newtonsoft.Json;
+using System.Net.Http.Headers;
+using Viora.AIResponses;
 namespace Viora.Services
 {
     public class SpeechToTextService
@@ -42,7 +44,7 @@ namespace Viora.Services
         #endregion
 
         //Better Implementation
-        public async Task<string> ConvertSpeechToTextAsync(Stream audioStream, string fileName)
+        public async Task<WhisperSpeechResult> ConvertSpeechToTextAsync(Stream audioStream, string fileName)
         {
 
             var client = _httpClientFactory.CreateClient();
@@ -58,7 +60,13 @@ namespace Viora.Services
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"Whisper returned {response.StatusCode}: {resultJson}");
 
-            return resultJson;
+            var result = JsonConvert.DeserializeObject<WhisperSpeechResult>(resultJson);
+
+            if (result == null)
+                throw new HttpRequestException($"Failed to convert the Whisper response to WhisperSpeechResult");
+
+
+            return result;
         }
     }
 }

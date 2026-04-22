@@ -25,19 +25,19 @@ namespace Viora.Controllers
         [RequestSizeLimit(10 * 1024 * 1024)]
         [SwaggerResponse(200,"Successfully uploaded and you get the documentId")]
         [SwaggerResponse(400,"The file is empty or not in the correct format pdf")]
-        public async Task<IActionResult> UploadFile(IFormFile pdf) 
+        public async Task<IActionResult> UploadFile(IFormFile file) 
         {
-            if (pdf == null || pdf.Length == 0)
+            if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
 
-            if (pdf.ContentType != "application/pdf")
+            if (file.ContentType != "application/pdf")
             {
                 return BadRequest("The file provided is not a PDF.");
             }
 
-            string fileName = pdf.FileName;
+            string fileName = file.FileName;
 
-              var documentId= await _documentService.UploadPdf(pdf, fileName, CurrentUserId);
+              var documentId= await _documentService.UploadPdf(file, fileName, CurrentUserId);
 
             return Ok(new { documentId });
         }
