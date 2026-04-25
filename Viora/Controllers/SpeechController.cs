@@ -43,7 +43,33 @@ namespace Viora.Controllers
         }
 
 
+        /// <summary>
+        /// Converts an audio file to text and saves it as a user message.
+        /// </summary>
+        /// <remarks>
+        /// Workflow: audio → transcript → save as User message → return result
+        ///
+        /// **Request (multipart/form-data):**
+        /// - AudioFile : Required. WAV or MP3 file.
+        /// - ChatId    : Optional. Existing chat ID; a new chat is created if omitted.
+        ///
+        /// **Response (application/json):**
+        /// - 200 → { text, chatId }
+        /// - 400 → No audio file provided.
+        /// - 500 → Transcription service failed.
+        /// - 502 → External service error.
+        /// 
+        /// Requires a valid JWT bearer token.
+        /// </remarks>
+        /// <response code="400">No audio file was provided, or the file is empty.</response>
+        /// <response code="500">The transcription service returned a non-success status.</response>
+        /// <response code="502">An error occurred while communicating with the external speech-to-text service.</response>
         [HttpPost("stt")]
+        [Consumes("multipart/form-data")]
+        [Produces("application/json")]                                          
+        [ProducesResponseType(typeof(SttResponseDTO), StatusCodes.Status200OK)]  
+        [ProducesResponseType(typeof(ErrorResponseDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponseDTO), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SpeechToText([FromForm] TranscribeRequestDTO request)
         {
 
@@ -76,7 +102,41 @@ namespace Viora.Controllers
 
 
 
+        /// <summary>
+        /// Converts speech to text, classifies intent, and executes the corresponding action.
+        /// </summary>
+        /// <remarks>
+        /// Workflow: audio → transcript → intent detection → action
+        ///
+        /// **Request (multipart/form-data):**
+        /// - AudioFile  : Required. WAV or MP3 file.
+        /// - ChatId     : Optional. Existing chat ID; a new chat is created if omitted.
+        /// - DocumentId : Required for summarize_content, document_qa, and generate_study_aid.
+        ///
+        /// **Intent → Response:**
+        /// - open_document      → JSON: { sttText, intent, documentName, chatId }
+        /// - summarize_content  → MP3 audio
+        /// - document_qa        → MP3 audio
+        /// - generate_study_aid → MP3 audio
+        /// - unknown intent     → 400 JSON: { error, intent, chatId }
+        ///
+        /// **Frontend must check Content-Type:**
+        /// - application/json → parse as JSON
+        /// - audio/mpeg       → play audio
+        /// 
+        /// Requires a valid JWT bearer token.
+        /// </remarks>
+        ///         
+        /// <response code="500">Transcription failed or intent classification returned an error.</response>
+        /// <response code="502">An error occurred while communicating with an external service.</response>
         [HttpPost("transcribe")]
+        [Consumes("multipart/form-data")]
+        [Produces("application/json", "audio/mpeg")]
+        [ProducesResponseType(typeof(TranscribeJsonResponseDTO), StatusCodes.Status200OK, "application/json")]
+        [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK, "audio/mpeg")]
+        [ProducesResponseType(typeof(ErrorResponseDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponseDTO), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ErrorResponseDTO), StatusCodes.Status502BadGateway)]
         public async Task<IActionResult> Transcribe([FromForm] TranscribeRequestDTO request) {
 
             if (request.AudioFile == null || request.AudioFile.Length==0) {
@@ -135,7 +195,6 @@ namespace Viora.Controllers
         }
 
 
-
         private async Task<IActionResult> HandleContentSummarization(int? chatId, int? documentId)
         {
             if (!documentId.HasValue)
@@ -144,8 +203,10 @@ namespace Viora.Controllers
             var summary = await _documentHandlingService.SummarizePdf(documentId, CurrentUserId);
 
             await _messageHandlingService.SaveMessage(summary, CurrentUserId, chatId, "AI");
+            var audio = await _ttsService.ConvertTextToSpeech(summary);
 
-            return Ok(new { summary });
+
+            return File(audio, "audio/mpeg", "summary.mp3");
         }
 
 
@@ -159,7 +220,9 @@ namespace Viora.Controllers
 
             await _messageHandlingService.SaveMessage(response, CurrentUserId, chatId, "AI");
 
-            return Ok(new { response });
+            var audio = await _ttsService.ConvertTextToSpeech(response);
+
+            return File(audio, "audio/mpeg", "response.mp3");
 
         }
 
@@ -172,13 +235,29 @@ namespace Viora.Controllers
 
             await _messageHandlingService.SaveMessage(quiz, CurrentUserId, chatId, "AI");
 
-            return Ok(new { quiz });
+            var audio = await _ttsService.ConvertTextToSpeech(quiz);
+
+            return File(audio, "audio/mpeg", "quiz.mp3");
         }
 
 
+        /// <summary>
+        /// Converts a text string to speech and returns it as an MP3 audio file.
+        /// </summary>
+        /// <remarks>
+        /// Accepts a JSON string body and returns the synthesized audio.
+        ///
+        /// Requires a valid JWT bearer token.
+        /// </remarks>
+        /// <param name="text">
+        /// Required. A JSON-encoded string containing the text to synthesize.
+        /// Example body: <c>"Hello, this is Viora."</c>
+        /// </param>
+        /// <returns>An MP3 audio file of the synthesized speech.</returns>
+        /// <response code="200">Returns the synthesized audio as an MP3 file (Content-Type: audio/mpeg).</response>
         [HttpPost("tts")]
         [Produces("audio/mpeg")]
-
+        [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
         public async Task<IActionResult> TextToSpeech([FromBody] string text)
         {
             var audioBytes = await _ttsService.ConvertTextToSpeech(text);

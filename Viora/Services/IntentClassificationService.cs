@@ -19,14 +19,13 @@ namespace Viora.Services
 
         }
 
-        public async Task<IntentResult> ClassifyIntentAsync(string text) {
-
-            if(string.IsNullOrEmpty(text))
+        public async Task<IntentResult> ClassifyIntentAsync(string text)
+        {
+            if (string.IsNullOrEmpty(text))
                 return new IntentResult { IsSuccess = false, ErrorMessage = "Text is empty" };
 
-
-
-            try {
+            try
+            {
                 var client = _httpClientFactory.CreateClient();
                 var payload = new StringContent(
                     JsonConvert.SerializeObject(new { text = text }),
@@ -34,33 +33,23 @@ namespace Viora.Services
                     "application/json");
 
                 var response = await client.PostAsync(_intentEndPoint, payload);
+
                 if (!response.IsSuccessStatusCode)
                 {
-
                     var error = await response.Content.ReadAsStringAsync();
                     return new IntentResult { IsSuccess = false, ErrorMessage = $"Service returned {(int)response.StatusCode}: {error}" };
                 }
+
                 var rawResult = await response.Content.ReadAsStringAsync();
-
-                var settings = new JsonSerializerSettings
-                {
-                    ContractResolver = new DefaultContractResolver
-                    {
-                        NamingStrategy = new SnakeCaseNamingStrategy()
-                    }
-
-                };
-
-                var result = JsonConvert.DeserializeObject<IntentResult>(rawResult, settings);
+                var result = JsonConvert.DeserializeObject<IntentResult>(rawResult);
                 result.IsSuccess = true;
 
                 return result;
-
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 return new IntentResult { IsSuccess = false, ErrorMessage = ex.Message };
             }
-
         }
 
 
