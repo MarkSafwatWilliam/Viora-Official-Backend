@@ -14,10 +14,12 @@ namespace Viora.Repositories
             _context = context; 
         }
 
-        public async Task<IEnumerable<GetChatsDTO>> GetChatsByUser(int userId)
+        public async Task<List<GetChatsDTO>> GetChatsById(int userId)
         {
             return await _context.Chats
-                .Where(c => c.UserId == userId)
+                .Where(c => c.UserId == userId &&
+                    c.Messages.Any(m => m.SenderType == "AI") &&
+                    c.Messages.Any(c=>c.AudioUrl != null))
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => new GetChatsDTO
                 {

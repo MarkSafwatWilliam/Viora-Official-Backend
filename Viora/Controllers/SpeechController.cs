@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using Newtonsoft.Json;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO.Pipelines;
 using System.Reflection.Metadata;
@@ -27,19 +28,23 @@ namespace Viora.Controllers
         private readonly MessageHandlingService _messageHandlingService;
         private readonly TextToSpeechService _ttsService;
         private readonly DocumentHandlingService _documentHandlingService;
+        private readonly SaveAudioService _saveAudioService;
+        private readonly ILogger<SpeechController> _logger;
 
 
         protected int CurrentUserId => int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var id) ? id : 0;
 
         public SpeechController(SpeechToTextService speechToTextService, IntentClassificationService intentClassification,
             MessageHandlingService messageHandlingService, TextToSpeechService ttsService,
-            DocumentHandlingService documentHandlingService)
+            DocumentHandlingService documentHandlingService, SaveAudioService saveAudioService, ILogger<SpeechController> logger)
         {
             _speechToTextService = speechToTextService;
             _intentClassification = intentClassification;
             _messageHandlingService = messageHandlingService;
             _ttsService = ttsService;
             _documentHandlingService = documentHandlingService;
+            _saveAudioService = saveAudioService;
+            _logger = logger;
         }
 
 
@@ -118,6 +123,7 @@ namespace Viora.Controllers
         /// - summarize_content  → MP3 audio
         /// - document_qa        → MP3 audio
         /// - generate_study_aid → MP3 audio
+        /// - camera_open        → JSON: { sttText, intent, chatId }
         /// - unknown intent     → 400 JSON: { error, intent, chatId }
         ///
         /// **Frontend must check Content-Type:**
@@ -159,6 +165,10 @@ namespace Viora.Controllers
                 if (!intentResult.IsSuccess)
                     return StatusCode(500, new { error = "Intent classification failed" });
 
+
+
+                //save it intent in the database  
+
                 //switch (handle the different intents)
                 return intentResult.Nlu.Intent switch
                 {
@@ -166,6 +176,7 @@ namespace Viora.Controllers
                     "summarize_content"=> await HandleContentSummarization(request.ChatId,request.DocumentId),
                     "document_qa"=> await HandleQuestionsAndAnswers(request.ChatId,request.DocumentId,intentResult.Nlu.Entities.Question ),
                     "generate_study_aid"=> await HandleMaterialGeneration(request.ChatId,request.DocumentId),
+                    "camera_open" => Ok(new { sttText = text, intent = "start_camera", chatId = chatID }),
                     _ => BadRequest(new { error = "Unhandled intent", intent = intentResult.Nlu.Intent ,chatID })
 
 
@@ -202,29 +213,37 @@ namespace Viora.Controllers
 
             var summary = await _documentHandlingService.SummarizePdf(documentId, CurrentUserId);
 
-            await _messageHandlingService.SaveMessage(summary, CurrentUserId, chatId, "AI");
             var audio = await _ttsService.ConvertTextToSpeech(summary);
+            var audioPath = await _saveAudioService.SaveAudioAsync(audio);
 
+            await _messageHandlingService.SaveMessage(summary, CurrentUserId, chatId, "AI", audioPath);
 
             return File(audio, "audio/mpeg", "summary.mp3");
         }
 
 
-
-        private async Task<IActionResult> HandleQuestionsAndAnswers(int? chatId, int? documentId,string question) {
+        private async Task<IActionResult> HandleQuestionsAndAnswers(int? chatId, int? documentId, string question)
+        {
 
             if (!documentId.HasValue || String.IsNullOrEmpty(question))
                 return BadRequest();
 
-            var response = await _documentHandlingService.QuestionsAnswers(documentId, CurrentUserId,question);
-
-            await _messageHandlingService.SaveMessage(response, CurrentUserId, chatId, "AI");
+            var response = await _documentHandlingService.QuestionsAnswers(documentId, CurrentUserId, question);
 
             var audio = await _ttsService.ConvertTextToSpeech(response);
+            var audioPath = await _saveAudioService.SaveAudioAsync(audio);
+
+            await _messageHandlingService.SaveMessage(response, CurrentUserId, chatId, "AI", audioPath);
 
             return File(audio, "audio/mpeg", "response.mp3");
-
         }
+
+
+
+
+
+
+
 
 
         private async Task<IActionResult> HandleMaterialGeneration(int? chatId , int? documentId)
@@ -233,9 +252,12 @@ namespace Viora.Controllers
             if (!documentId.HasValue || String.IsNullOrEmpty(quiz))
                 return BadRequest();
 
-            await _messageHandlingService.SaveMessage(quiz, CurrentUserId, chatId, "AI");
-
             var audio = await _ttsService.ConvertTextToSpeech(quiz);
+
+
+            var audioPath = await _saveAudioService.SaveAudioAsync(audio);
+
+            await _messageHandlingService.SaveMessage(quiz, CurrentUserId, chatId, "AI", audioPath);
 
             return File(audio, "audio/mpeg", "quiz.mp3");
         }

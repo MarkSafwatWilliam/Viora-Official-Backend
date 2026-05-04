@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Viora.Dtos;
 using Viora.Models;
 using Viora.Repositories;
@@ -37,13 +38,15 @@ namespace Viora.Services
 
 
 
-        public async Task<IEnumerable<GetChatsDTO>> GetUserChats(int userId)
+        public async Task<IEnumerable<GetChatsDTO?>> GetUserChats(int userId)
         {
-            return await _chatRepository.GetChatsByUser(userId);
+            return await _chatRepository.GetChatsById(userId);
+
         }
 
 
 
-        
+
+
     }
 }

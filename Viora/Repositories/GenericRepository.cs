@@ -54,5 +54,13 @@ namespace Viora.Repositories
         {
             return await _context.Set<TEntity>().FirstOrDefaultAsync(preddicate);
         }
+
+
+        public async Task<IQueryable<TEntity>> GetQueryable() {
+
+            return  _context.Set<TEntity>();
+        } 
+
+        
     }
 }

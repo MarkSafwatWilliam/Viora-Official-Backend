@@ -21,7 +21,7 @@ namespace Viora.Controllers
         
             _documentService = documentService;
         }
-        [HttpPost("upload")]
+        [HttpPost("upload-file")]
         [RequestSizeLimit(10 * 1024 * 1024)]
         [SwaggerResponse(200,"Successfully uploaded and you get the documentId")]
         [SwaggerResponse(400,"The file is empty or not in the correct format pdf")]
@@ -40,6 +40,23 @@ namespace Viora.Controllers
               var documentId= await _documentService.UploadPdf(file, fileName, CurrentUserId);
 
             return Ok(new { documentId });
+        }
+
+
+
+        [HttpPost("upload-image")]
+        public async Task<IActionResult> UploadImage(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No image uploaded.");
+
+            var description = await _documentService.UploadImage(file);
+            if (string.IsNullOrEmpty(description))
+            {
+                return BadRequest("Failed to process the image.");
+            }
+
+            return Ok(new { description });
         }
     }
 }

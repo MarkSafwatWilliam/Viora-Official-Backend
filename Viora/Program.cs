@@ -110,7 +110,9 @@ builder.Services.AddScoped<MessageHandlingService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TextToSpeechService>();
 builder.Services.AddScoped<DocumentHandlingService>();
-
+builder.Services.AddScoped<SaveAudioService>();
+//Hosted Service for cleaning up old files
+builder.Services.AddHostedService<FileCleanupService>();
 
 
 

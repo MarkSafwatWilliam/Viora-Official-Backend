@@ -15,7 +15,7 @@ namespace Viora.Services
         private readonly string _summarizationEndPoint;
         private readonly string _questAndAnswerEndPoint;
         private readonly string _GenerateMaterialsEndPoint;
-
+        private readonly string _AnalyzeImageEndPoint;
 
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
@@ -29,6 +29,7 @@ namespace Viora.Services
             _summarizationEndPoint = configuration["ApiSettings:SummarizationEndPoint"];
             _questAndAnswerEndPoint = configuration["ApiSettings:Q&AEndPoint"];
             _GenerateMaterialsEndPoint = configuration["ApiSettings:GenenrateMaterialsEndPoint"];
+            _AnalyzeImageEndPoint = configuration["ApiSettings:AnalyzeImageEndPoint"];
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _repo = repo;
@@ -36,8 +37,8 @@ namespace Viora.Services
         }
 
 
-        public async Task<int> UploadPdf(IFormFile pdf,string fileName,int userId) { 
-        
+        public async Task<int> UploadPdf(IFormFile pdf, string fileName, int userId) {
+
             var client = _httpClientFactory.CreateClient();
 
             using var content = new MultipartFormDataContent();
@@ -46,7 +47,7 @@ namespace Viora.Services
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(pdf.ContentType);
             content.Add(fileContent, "file", fileName);
 
-            var response =await client.PostAsync(_uploadDocumentEndPoint, content);
+            var response = await client.PostAsync(_uploadDocumentEndPoint, content);
 
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"AI Service returned {response.StatusCode}");
@@ -73,7 +74,7 @@ namespace Viora.Services
                 Type = pdf.ContentType
             };
             //Save to DB
-             await _repo.Add(file);
+            await _repo.Add(file);
 
             await _repo.SaveChanges();
 
@@ -92,7 +93,7 @@ namespace Viora.Services
         }
 
 
-        public async Task<string> SummarizePdf(int? documentId,int userId)
+        public async Task<string> SummarizePdf(int? documentId, int userId)
         {
             var client = _httpClientFactory.CreateClient();
 
@@ -103,7 +104,7 @@ namespace Viora.Services
             return summary;
         }
 
-        private async Task<string> GetPdfContentAsync(int? documentId,int userId)
+        private async Task<string> GetPdfContentAsync(int? documentId, int userId)
         {
             if (_cache.TryGetValue($"pdf:{documentId}", out string cachedContent))
             {
@@ -143,11 +144,11 @@ namespace Viora.Services
 
 
 
-        public async Task<string> QuestionsAnswers(int? documentId,int userId,string question)
+        public async Task<string> QuestionsAnswers(int? documentId, int userId, string question)
         {
             var pdfContent = await GetPdfContentAsync(documentId, userId);
 
-            var client= _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient();
 
             var response = await client.PostAsJsonAsync(_questAndAnswerEndPoint, new { message = question, context = pdfContent });
 
@@ -158,7 +159,7 @@ namespace Viora.Services
 
             var result = JsonConvert.DeserializeObject<QuestionsAnswersResult>(stringJson);
 
-            if(result?.Status != "success")
+            if (result?.Status != "success")
                 throw new HttpRequestException($"Failed to answer your question");
 
 
@@ -170,11 +171,11 @@ namespace Viora.Services
 
         public async Task<string> GeneratingStudyMaterials(int? documentId, int userId)
         {
-            var content = await GetPdfContentAsync(documentId,userId);
-            var client= _httpClientFactory.CreateClient();
+            var content = await GetPdfContentAsync(documentId, userId);
+            var client = _httpClientFactory.CreateClient();
 
-            var response = await client.PostAsJsonAsync(_GenerateMaterialsEndPoint, new {content=content , mode = "quiz" });
-            if(! response.IsSuccessStatusCode)
+            var response = await client.PostAsJsonAsync(_GenerateMaterialsEndPoint, new { content = content, mode = "quiz" });
+            if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"AI Service returned {response.StatusCode}");
 
 
@@ -189,5 +190,31 @@ namespace Viora.Services
             return quiz.Result;
         }
 
+
+
+
+
+
+        public async Task<string> UploadImage(IFormFile file)
+        {
+            var client = _httpClientFactory.CreateClient();
+
+            using var content = new MultipartFormDataContent();
+
+            using var stream = file.OpenReadStream();
+            var fileContent = new StreamContent(stream);
+
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+            content.Add(fileContent, "file", file.FileName);
+            var response =await client.PostAsync(_AnalyzeImageEndPoint, content);
+            string stringJson = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<UploadImageResult>(stringJson);
+            if (!response.IsSuccessStatusCode || result?.Status != "success")
+                throw new HttpRequestException($"AI Service returned {response.StatusCode} or failed to analyze the image.");
+
+            return result.Description;
+
+        } 
     }
 }
