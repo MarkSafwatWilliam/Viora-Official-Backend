@@ -15,11 +15,14 @@ namespace Viora.Controllers
     public class DocumentController : ControllerBase
     {
         private readonly DocumentHandlingService _documentService;
+        private readonly TextToSpeechService _textToSpeechService;
+
         protected int CurrentUserId => int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var id) ? id : 0;
 
-        public DocumentController(DocumentHandlingService documentService) { 
+        public DocumentController(DocumentHandlingService documentService, TextToSpeechService textToSpeechService) { 
         
             _documentService = documentService;
+            _textToSpeechService = textToSpeechService;
         }
         [HttpPost("upload-file")]
         [RequestSizeLimit(10 * 1024 * 1024)]
@@ -56,7 +59,11 @@ namespace Viora.Controllers
                 return BadRequest("Failed to process the image.");
             }
 
-            return Ok(new { description });
+            var audioStream = await _textToSpeechService.ConvertTextToSpeech(description);
+
+
+
+            return File(audioStream, "audio/mpeg", "description.mp3");
         }
     }
 }
