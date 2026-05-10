@@ -66,7 +66,16 @@ builder.Services.AddSignalR();
 
 
 //Identity Configuration
-builder.Services.AddIdentity<ApplicationUser,IdentityRole<int>>()
+builder.Services.AddIdentity<ApplicationUser,IdentityRole<int>>
+    (options=> {
+
+        options.Password.RequireDigit = false;           // don't force numbers
+        options.Password.RequireLowercase = false;       // don't force lowercase
+        options.Password.RequireUppercase = false;       // don't force uppercase
+        options.Password.RequireNonAlphanumeric = false; // don't force special chars
+        options.Password.RequiredLength = 6;             // minimum length
+        options.Password.RequiredUniqueChars = 1;
+     })
     .AddEntityFrameworkStores<VioraDBContext>()
     .AddDefaultTokenProviders();
 
@@ -111,6 +120,8 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TextToSpeechService>();
 builder.Services.AddScoped<DocumentHandlingService>();
 builder.Services.AddScoped<SaveAudioService>();
+builder.Services.AddScoped<MangeAccountService>();
+
 //Hosted Service for cleaning up old files
 builder.Services.AddHostedService<FileCleanupService>();
 

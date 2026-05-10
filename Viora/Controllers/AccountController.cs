@@ -18,12 +18,16 @@ namespace Viora.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly GenericRepository<RefreshToken> _refreshTokenRepo;
         private readonly JwtAuthenticationService _jwtService;
+        private readonly MangeAccountService _manageService;
 
-        public AccountController(UserManager<ApplicationUser> userManager, JwtAuthenticationService jwtService, GenericRepository<RefreshToken> refreshTokenRepo)
+        public AccountController(UserManager<ApplicationUser> userManager, JwtAuthenticationService jwtService, GenericRepository<RefreshToken> refreshTokenRepo,
+            MangeAccountService manageService)
         {
             _userManager = userManager;
             _jwtService = jwtService;
             _refreshTokenRepo = refreshTokenRepo;
+            _manageService = manageService;
+
         }
 
 
@@ -32,7 +36,7 @@ namespace Viora.Controllers
         [HttpPost("register")]
         [SwaggerResponse(200, "SignUp Successfully")]
         [SwaggerResponse(400, "Failed to SignUp")]
-        public async Task<IActionResult> Register([FromBody]CreateUserDTO dto)
+        public async Task<IActionResult> Register([FromBody] CreateUserDTO dto)
         {
             if (dto == null || !ModelState.IsValid)
                 return BadRequest("Invalid user data.");
@@ -167,5 +171,86 @@ namespace Viora.Controllers
 
             return NoContent();
         }
+
+
+
+
+
+
+        /// <summary>
+        /// Verifies the user's identity using security information before allowing password reset.
+        /// </summary>
+        /// <remarks>
+        /// This endpoint accepts the user's email and security answers (such as mother's name and city of birth).
+        /// If verification succeeds, a temporary password reset token is generated and returned.
+        /// The returned token must be used in the forget-password endpoint to complete the password reset.
+        /// </remarks>
+        /// <param name="dto">
+        /// Verification data including:
+        /// - Email
+        /// - MotherName
+        /// - CityOfBirth
+        /// </param>
+        /// <returns>
+        /// Returns a temporary reset token if verification succeeds.
+        /// </returns>
+        [SwaggerResponse(StatusCodes.Status200OK, "Account verified successfully. Reset token returned.")]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, "Verification failed due to invalid data.")]
+
+        [HttpPost("verify-account")]
+        public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountDTO dto)
+        {
+            try
+            {
+                var token = await _manageService.VerifyAccount(dto);
+                return Ok(new { Token = token });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+
+
+        /// <summary>
+        /// Resets the user's password using a valid reset token.
+        /// </summary>
+        /// <remarks>
+        /// This endpoint accepts the user's email, the reset token returned from verify-account,
+        /// and the new password.
+        /// If the token is valid, the user's password is updated successfully.
+        /// </remarks>
+        /// <param name="dto">
+        /// Password reset data including:
+        /// - Email
+        /// - Token
+        /// - NewPassword
+        /// </param>
+        /// <returns>
+        /// Returns a success message if the password is reset successfully.
+        /// </returns>
+        [SwaggerResponse(StatusCodes.Status200OK, "Password reset successfully.")]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, "Password reset failed due to invalid token or invalid password.")]
+
+        [HttpPost("forget-password")]
+        public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordDTO dto)
+        {
+            try
+            {
+                var result = await _manageService.ForgetPassword(dto);
+                if (result.Succeeded)
+                    return Ok("Password reset successfully.");
+                else
+                    return BadRequest(result.Errors);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+        }
+
+
     }
 }
