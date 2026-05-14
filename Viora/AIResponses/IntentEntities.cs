@@ -36,5 +36,8 @@ namespace Viora.AIResponses
 
         [JsonProperty("camera_action")]
         public string CameraAction { get; set; }
+
+        [JsonProperty("embedding")]
+        public List<float> Embedding { get; set; }
     }
 }

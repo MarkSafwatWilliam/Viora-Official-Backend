@@ -172,7 +172,7 @@ namespace Viora.Controllers
                 //switch (handle the different intents)
                 return intentResult.Nlu.Intent switch
                 {
-                    "open_document" => await HandleOpenDocument(text, intentResult.Nlu.Entities , chatID),
+                    "open_document" => await HandleOpenDocument(text, intentResult.Nlu.Entities , chatID,intentResult.Nlu.Entities.Embedding),
                     "summarize_content"=> await HandleContentSummarization(request.ChatId,request.DocumentId),
                     "document_qa"=> await HandleQuestionsAndAnswers(request.ChatId,request.DocumentId,intentResult.Nlu.Entities.Question ),
                     "generate_study_aid"=> await HandleMaterialGeneration(request.ChatId,request.DocumentId),
@@ -197,12 +197,12 @@ namespace Viora.Controllers
 
 
 
-        private async Task<IActionResult> HandleOpenDocument(string text, IntentEntities entities , int chatId)
+        private async Task<IActionResult> HandleOpenDocument(string text, IntentEntities entities , int chatId, List<float> embedding)
         {
             if (string.IsNullOrEmpty(entities.DocumentName))
                 return BadRequest(new { error = "No document name found" });
 
-            return Ok(new { STT_text = text, intent = "open_document", documentName = entities.DocumentName, chatId });
+            return Ok(new { stt_text = text, intent = "open_document", documentName = entities.DocumentName, chatId, embedding = embedding });
         }
 
 
