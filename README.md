@@ -82,7 +82,7 @@ Viora/
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/Viora.git
+git clone https://github.com/<your-username>/Viora-Official-Backend.git
 cd Viora
 ```
 
