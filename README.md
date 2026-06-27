@@ -77,7 +77,7 @@ Viora/
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [SQL Server](https://www.microsoft.com/en-us/sql-server/) (local or remote)
-- Access to the AI microservices (STT, TTS, NLU, Vision, Document processing)
+- Access to the AI services (STT, TTS, NLU, Vision, Document processing)
 
 ## Installation
 
