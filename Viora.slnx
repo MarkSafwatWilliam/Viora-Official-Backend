@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="Viora.Tests/Viora.Tests.csproj" Id="1ff7615d-89aa-484c-8517-67a89b61d684" />
   <Project Path="Viora/Viora.csproj" />
 </Solution>
